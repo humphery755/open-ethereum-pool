@@ -12,8 +12,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/sammy007/open-ethereum-pool/storage"
-	"github.com/sammy007/open-ethereum-pool/util"
+	"github.com/humphery755/open-ethereum-pool/storage"
+	"github.com/humphery755/open-ethereum-pool/util"
 )
 
 type ApiConfig struct {
@@ -108,6 +108,7 @@ func (s *ApiServer) listen() {
 	r.HandleFunc("/api/blocks", s.BlocksIndex)
 	r.HandleFunc("/api/payments", s.PaymentsIndex)
 	r.HandleFunc("/api/accounts/{login:0x[0-9a-fA-F]{40}}", s.AccountIndex)
+	r.HandleFunc("/api/hashrate/{login:0x[0-9a-fA-F]{40}}", s.HashrateIndex)
 	r.NotFoundHandler = http.HandlerFunc(notFound)
 	err := http.ListenAndServe(s.config.Listen, r)
 	if err != nil {
@@ -291,6 +292,35 @@ func (s *ApiServer) AccountIndex(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(reply.stats)
+	if err != nil {
+		log.Println("Error serializing API response: ", err)
+	}
+}
+
+func (s *ApiServer) HashrateIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Cache-Control", "no-cache")
+
+	login := strings.ToLower(mux.Vars(r)["login"])
+	//reply := make(map[string]interface{})
+
+	exist, err := s.backend.IsMinerExists(login)
+	if !exist {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("Failed to fetch stats from backend: %v", err)
+		return
+	}
+	hashrates,err := s.backend.GetMinerHashrate(login)
+	if err != nil {
+		log.Println("Error getMinerHashrate API: ", err)
+	}
+	
+	err = json.NewEncoder(w).Encode(hashrates)
 	if err != nil {
 		log.Println("Error serializing API response: ", err)
 	}
