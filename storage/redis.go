@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/redis.v3"
 
-	"github.com/sammy007/open-ethereum-pool/util"
+	"github.com/humphery755/open-ethereum-pool/util"
 )
 
 type Config struct {
@@ -816,6 +816,37 @@ func (r *RedisClient) CollectLuckStats(windows []int) (map[string]interface{}, e
 		}
 	}
 	return stats, nil
+}
+//sWindow, lWindow time.Duration,
+func (r *RedisClient) GetMinerHashrate(login string) (map[string]interface{}, error) {
+	//smallWindow := int64(sWindow / time.Second)
+	//largeWindow := int64(lWindow / time.Second)
+	repl := make(map[string]interface{})
+
+	//tx := r.client.Multi()
+	//defer tx.Close()
+
+	//now := util.MakeTimestamp() / 1000
+
+	raw := r.client.ZRevRangeWithScores(r.formatKey("hashrate", login), 0, -1)
+
+	var timestamps []*string
+	var hashrates []*int64
+	//workers := convertWorkersStats(smallWindow, cmds[1].(*redis.ZSliceCmd))
+	for _, v := range raw.Val() {
+		parts := strings.Split(v.Member.(string), ":")
+		share, _ := strconv.ParseInt(parts[0], 10, 64)
+		//id := parts[1]
+		score := int64(v.Score)
+		strtime := strconv.FormatInt(score,10)
+		
+		timestamps = append(timestamps, &strtime)
+		hashrates = append(hashrates, &share)
+	}
+
+	repl["timestamps"] = timestamps
+	repl["hashrates"] = len(hashrates)
+	return repl, nil
 }
 
 func convertCandidateResults(raw *redis.ZSliceCmd) []*BlockData {
